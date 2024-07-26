@@ -22,7 +22,18 @@ TimeSpan timeout = TimeSpan.FromSeconds(15);
 var timeoutToken = new CancellationTokenSource(timeout);
 var logger = new Logger();
 logger.LogInformation("Hello World!");
-logger.LogInformation(args.JoinAsOneString("\n"));
+//logger.LogInformation(args.JoinAsOneString("\n"));
+{
+    // //信任远程证书  执行不了，url直接连不上不会出交互
+    // var lcmd = $"echo p | svn ls {reposURL}";
+    // var (isSuccesss1, log, c) = await CommandHelper.Invoke2Async(lcmd);
+    // if (!isSuccesss1)
+    // {
+    //     logger.LogError(log);
+    //     throw new Exception(string.Format(template, c, lcmd));
+    // }
+
+}
 
 var cmd = $"svnlook changed -t \"{txn}\" \"{repos}\"";
 // logger.LogError(cmd);
@@ -45,7 +56,7 @@ await Parallel.ForEachAsync(subSet, timeoutToken.Token, async (entry, token) =>
     token.ThrowIfCancellationRequested();
     if (!isSuccesss2)
     {
-        // logger.LogError(content);
+        logger.LogError(fileCommitingContent);
         // logger.LogError($"get filecontent fault:{code2}");
         throw new Exception(string.Format(template, code2, getFileCommitingContent));
     }
@@ -60,6 +71,7 @@ await Parallel.ForEachAsync(subSet, timeoutToken.Token, async (entry, token) =>
     token.ThrowIfCancellationRequested();
     if (!isGetFileInReposOk)
     {
+        logger.LogError(fileInReposContent);
 #if DEBUG
         throw new Exception(string.Format(template, code3, getFileInRepos));
 #else
