@@ -7,15 +7,16 @@ using SVNMetaCheck;
 // const string reposURL = "http://127.0.0.1/svn/metaAvoidTest";
 // const string user = "admin";
 // const string pwd = "123";
+const string template = "[exit:{0}][exec]{1}";
 var repos = args[0];
 var txn = args[1];
 
 var appsettingJson = File.ReadAllText($"{repos}/hooks/appsetting.json");
-var appsetting = JsonSerializer.Deserialize<AppSettingModel>(appsettingJson) ?? throw new Exception("deserialize json file fail");
+var appsetting = JsonSerializer.Deserialize<AppSettingModel>(appsettingJson) ??
+                 throw new Exception("deserialize json file fail");
 string reposURL = appsetting.ReposURL;
 string user = appsetting.User;
 string pwd = appsetting.Pwd;
-
 
 TimeSpan timeout = TimeSpan.FromSeconds(15);
 var timeoutToken = new CancellationTokenSource(timeout);
@@ -28,7 +29,7 @@ var cmd = $"svnlook changed -t \"{txn}\" \"{repos}\"";
 var (isSuccesss, processlog, code) = await CommandHelper.Invoke2Async(cmd);
 if (!isSuccesss)
 {
-    throw new Exception($"[exit:{code}][exec]{cmd}");
+    throw new Exception(string.Format(template, code, cmd));
 }
 
 // logger.LogError(processlog);
@@ -46,12 +47,12 @@ await Parallel.ForEachAsync(subSet, timeoutToken.Token, async (entry, token) =>
     {
         // logger.LogError(content);
         // logger.LogError($"get filecontent fault:{code2}");
-        throw new Exception($"[exit:{code2}][exec]{getFileCommitingContent}");
+        throw new Exception(string.Format(template, code2, getFileCommitingContent));
     }
 
     var guidCommiting = MetaGUIDResolver.GetGUID(fileCommitingContent);
     var path = $"{reposURL}/{entry.Path}";
-    var getFileInRepos = $"svn cat \"{path}\" --non-interactive  --username {user} --password {pwd}";
+    var getFileInRepos = $"svn cat \"{path}\" --non-interactive --username {user} --password {pwd}";
     // logger.LogError(getFileInRepos);
     await Task.Delay(TimeSpan.FromSeconds(1));
     var (isGetFileInReposOk, fileInReposContent, code3) =
@@ -59,7 +60,12 @@ await Parallel.ForEachAsync(subSet, timeoutToken.Token, async (entry, token) =>
     token.ThrowIfCancellationRequested();
     if (!isGetFileInReposOk)
     {
-        throw new Exception($"[exit:{code3}][exec]{getFileInRepos}");
+#if DEBUG
+        throw new Exception(string.Format(template, code3, getFileInRepos));
+#else
+        throw new Exception(string.Format(template, code3,
+            getFileInRepos.Replace(user, "**user**").Replace(pwd, "**pwd**")));
+#endif
     }
 
     var guidExist = MetaGUIDResolver.GetGUID(fileInReposContent);
