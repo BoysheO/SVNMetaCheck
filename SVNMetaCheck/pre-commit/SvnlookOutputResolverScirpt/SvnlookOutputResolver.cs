@@ -17,8 +17,15 @@ public class SvnlookOutputResolver
                 case 'U':
                     actionType = ActionType.Update;
                     break;
+                case 'A':
+                    actionType = ActionType.Add;
+                    break;
+                case 'D':
+                    actionType = ActionType.Delete;
+                    break;
                 //在本例中只要检查update条目
                 default:
+                    throw new NotImplementedException(log);
                     actionType = ActionType.Unknown;
                     break;
             }

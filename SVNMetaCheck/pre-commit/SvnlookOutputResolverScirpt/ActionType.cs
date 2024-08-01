@@ -1,9 +1,9 @@
 namespace SVNMetaCheck;
-
 public enum ActionType
 {
     Unknown,
 
-    // Add,
+    Add,
     Update,
+    Delete,
 }

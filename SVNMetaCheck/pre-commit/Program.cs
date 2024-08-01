@@ -1,8 +1,12 @@
 ﻿using System.Text.Json;
 using BoysheO.Extensions;
 using BoysheO.UnityEditor;
+using BoysheO.Util;
 using SVNMetaCheck;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
 
+return await Program2.Main(args,default);
 
 // const string reposURL = "http://127.0.0.1/svn/metaAvoidTest";
 // const string user = "admin";
@@ -11,29 +15,23 @@ const string template = "[exit:{0}][exec]{1}";
 var repos = args[0];
 var txn = args[1];
 
-var appsettingJson = File.ReadAllText($"{repos}/hooks/appsetting.json");
-var appsetting = JsonSerializer.Deserialize<AppSettingModel>(appsettingJson) ??
+var appsettingYaml = File.ReadAllText($"{repos}/hooks/appsetting.yaml");
+var deserializer = new DeserializerBuilder()
+    .IgnoreUnmatchedProperties()
+    // .WithNamingConvention(CamelCaseNamingConvention.Instance)
+    .Build();
+var appsetting = deserializer.Deserialize<AppSettingModel>(appsettingYaml) ??
                  throw new Exception("deserialize json file fail");
-string reposURL = appsetting.ReposURL;
-string user = appsetting.User;
-string pwd = appsetting.Pwd;
+// string reposURL = appsetting.ReposURL;
+// string user = appsetting.User;
+// string pwd = appsetting.Pwd;
 
 TimeSpan timeout = TimeSpan.FromSeconds(15);
 var timeoutToken = new CancellationTokenSource(timeout);
 var logger = new Logger();
-logger.LogInformation("Hello World!");
-//logger.LogInformation(args.JoinAsOneString("\n"));
-{
-    // //信任远程证书  执行不了，url直接连不上不会出交互
-    // var lcmd = $"echo p | svn ls {reposURL}";
-    // var (isSuccesss1, log, c) = await CommandHelper.Invoke2Async(lcmd);
-    // if (!isSuccesss1)
-    // {
-    //     logger.LogError(log);
-    //     throw new Exception(string.Format(template, c, lcmd));
-    // }
-
-}
+// logger.LogInformation("Hello World!");
+// logger.LogError(user);
+// logger.LogError(pwd);
 
 var cmd = $"svnlook changed -t \"{txn}\" \"{repos}\"";
 // logger.LogError(cmd);
@@ -62,22 +60,23 @@ await Parallel.ForEachAsync(subSet, timeoutToken.Token, async (entry, token) =>
     }
 
     var guidCommiting = MetaGUIDResolver.GetGUID(fileCommitingContent);
-    var path = $"{reposURL}/{entry.Path}";
-    var getFileInRepos = $"svn cat \"{path}\" --non-interactive --username {user} --password {pwd}";
+    // var path = $"{reposURL}/{entry.Path}";
+    // var getFileInRepos = $"svn cat \"{path}\" --non-interactive --username {user} --password {pwd}";
+    var getFileInRepos = $"svnlook cat \"{repos}\" \"{entry.Path}\"";
     // logger.LogError(getFileInRepos);
-    await Task.Delay(TimeSpan.FromSeconds(1));
     var (isGetFileInReposOk, fileInReposContent, code3) =
         await CommandHelper.Invoke2Async(getFileInRepos, token: token);
+    // logger.LogError(fileInReposContent);
     token.ThrowIfCancellationRequested();
     if (!isGetFileInReposOk)
     {
-        logger.LogError(fileInReposContent);
-#if DEBUG
+        // logger.LogError(fileInReposContent);
+// #if DEBUG
         throw new Exception(string.Format(template, code3, getFileInRepos));
-#else
-        throw new Exception(string.Format(template, code3,
-            getFileInRepos.Replace(user, "**user**").Replace(pwd, "**pwd**")));
-#endif
+// #else
+        // throw new Exception(string.Format(template, code3,
+            // getFileInRepos.Replace(user, "**user**").Replace(pwd, "**pwd**")));
+// #endif
     }
 
     var guidExist = MetaGUIDResolver.GetGUID(fileInReposContent);
@@ -87,6 +86,25 @@ await Parallel.ForEachAsync(subSet, timeoutToken.Token, async (entry, token) =>
         throw new Exception(
             $"commit is rejected:Not allow to modify guid in {entry.Path}.commitingGuid={guidCommiting},existGuid={guidExist}");
     }
+
+    var cc = $"svnlook filesize -t {txn} \"{repos}\" \"{entry.Path}\"";
+    var sizeResult = await CommandHelper.Invoke2Async(cc, token: token);
+    if (!sizeResult.isSuccesss)
+    {
+        logger.LogError(sizeResult.processlog);
+        throw new Exception(string.Format(template, sizeResult.code, cc));
+    }
+
+    //文件大小检查
+    {
+        var size_byte = long.Parse(sizeResult.processlog);
+        var size_mb = size_byte / 1024 / 1024;
+        if (size_mb > appsetting.SizeMBLimit)
+        {
+            throw new Exception(appsetting.SizeMBLimitMsg);
+        }
+    }
+    
 });
 
 // Console.Error.WriteLine("done");
