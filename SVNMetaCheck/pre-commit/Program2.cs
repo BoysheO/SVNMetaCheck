@@ -44,7 +44,7 @@ public class Program2
         });
 
         collection.AddTransient<ISVNChecker, GUIDChangeChecker>();
-        collection.AddTransient<ISVNChecker, SizeChecker>();
+        // collection.AddTransient<ISVNChecker, SizeChecker>();
         var s = collection.BuildServiceProvider();
 
         #region Run
