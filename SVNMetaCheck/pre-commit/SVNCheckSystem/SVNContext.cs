@@ -35,7 +35,11 @@ public sealed class SVNContext
 
         var cc = $"svnlook filesize -t {txn} \"{repos}\" \"{entry.Path}\"";
         var output = await MyCommandHelper.Exec(cc, _logger, token);
-        var size_byte = long.Parse(output);
+        var isOk = long.TryParse(output,out var size_byte);
+        if (!isOk)
+        {
+            throw new Exception($"covert {output} tolong fail");
+        }
         lock (_entry2SizeCommitting)
         {
             _entry2SizeCommitting[entry] = size_byte;

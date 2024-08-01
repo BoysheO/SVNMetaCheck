@@ -16,7 +16,8 @@ public class SizeChecker : ISVNChecker
 
     public bool Filter(SVNLogEntry entry)
     {
-        return entry.Action == ActionType.Add;
+        if (entry.Path.Last() == '/') return false;//是文件夹
+        return entry.Action == ActionType.Add || entry.Action == ActionType.Update;
     }
 
     public async ValueTask<Result> Check(SVNLogEntry entry, CancellationToken token)

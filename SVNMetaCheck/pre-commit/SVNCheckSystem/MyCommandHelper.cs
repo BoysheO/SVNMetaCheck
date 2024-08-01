@@ -10,7 +10,7 @@ public static class MyCommandHelper
         var (isSuccesss, processlog, code) = await CommandHelper.Invoke2Async(cmd, token: token);
         if (!isSuccesss)
         {
-            logger?.LogError("[exit:{0}][exec]{1}", code, processlog);
+            logger?.LogError("[exit:{0}][exec:{cmd}]{1}", code, cmd, processlog.Trim());
             throw new Exception("exec fail.");
         }
 
